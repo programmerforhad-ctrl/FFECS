@@ -106,7 +106,7 @@ export default function ResponsesPanel({
       {filtered.length > 0 && view === "table" && (
         <div className="card mt-4 max-h-[70vh] overflow-auto">
           <table className="w-full min-w-max border-collapse text-left text-sm">
-            <thead className="sticky top-0 z-10 bg-[#0d0d12] text-xs uppercase tracking-wider text-zinc-400">
+            <thead className="sticky top-0 z-10 bg-field text-xs uppercase tracking-wider text-zinc-400">
               <tr>
                 <th className="border-b border-line px-3 py-3">#</th>
                 <th className="border-b border-line px-3 py-3">Submitted</th>

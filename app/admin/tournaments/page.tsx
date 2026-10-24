@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import type { Form, Tournament } from "@/lib/types";
@@ -7,7 +8,7 @@ import { fmtDateTime, fromLocalInput, toLocalInput } from "@/lib/format";
 import ImageUpload from "@/components/admin/ImageUpload";
 import { StatusBadge } from "@/components/ui";
 
-type Draft = Partial<Tournament> & { date_input?: string };
+type Draft = Partial<Tournament> & { date_input?: string; reg_input?: string };
 const blank: Draft = {
   title: "",
   description: "",
@@ -21,6 +22,7 @@ const blank: Draft = {
   form_id: null,
   is_published: true,
   date_input: "",
+  reg_input: "",
 };
 
 export default function TournamentsAdmin() {
@@ -51,6 +53,7 @@ export default function TournamentsAdmin() {
       description: draft.description || null,
       status: draft.status ?? "upcoming",
       start_date: fromLocalInput(draft.date_input),
+      registration_end: fromLocalInput(draft.reg_input),
       entry_fee: draft.entry_fee || null,
       prize_pool: draft.prize_pool || null,
       rules: draft.rules || null,
@@ -106,6 +109,11 @@ export default function TournamentsAdmin() {
               <input type="datetime-local" className="input" value={d.date_input ?? ""} onChange={(e) => setDraft({ ...d, date_input: e.target.value })} />
             </div>
             <div>
+              <label className="label">Registration ends (Bangladesh time)</label>
+              <input type="datetime-local" className="input" value={d.reg_input ?? ""} onChange={(e) => setDraft({ ...d, reg_input: e.target.value })} />
+              <p className="mt-1 text-xs text-zinc-500">The registration form closes automatically at this time.</p>
+            </div>
+            <div>
               <label className="label">Entry fee (e.g. 100 BDT / Free)</label>
               <input className="input" value={d.entry_fee ?? ""} onChange={(e) => setDraft({ ...d, entry_fee: e.target.value })} />
             </div>
@@ -149,7 +157,7 @@ export default function TournamentsAdmin() {
             </div>
           </div>
           <label className="flex items-center gap-2 text-sm text-zinc-200">
-            <input type="checkbox" className="h-4 w-4 accent-[#ff4d1a]" checked={d.is_published ?? true} onChange={(e) => setDraft({ ...d, is_published: e.target.checked })} />
+            <input type="checkbox" className="h-4 w-4 accent-[#ff7a29]" checked={d.is_published ?? true} onChange={(e) => setDraft({ ...d, is_published: e.target.checked })} />
             Published (visible on website)
           </label>
           {err && <p className="text-sm text-red-400">{err}</p>}
@@ -175,7 +183,10 @@ export default function TournamentsAdmin() {
               <p className="text-sm text-zinc-400">{t.start_date ? fmtDateTime(t.start_date) : "No date set"}</p>
             </div>
             <StatusBadge status={t.status} />
-            <button className="btn btn-ghost btn-sm" onClick={() => { setDraft({ ...t, date_input: toLocalInput(t.start_date) }); setErr(""); }}>
+            <Link href={`/admin/tournaments/${t.id}`} className="btn btn-primary btn-sm">
+              Teams & matches
+            </Link>
+            <button className="btn btn-ghost btn-sm" onClick={() => { setDraft({ ...t, date_input: toLocalInput(t.start_date), reg_input: toLocalInput(t.registration_end) }); setErr(""); }}>
               Edit
             </button>
             <button className="btn btn-danger btn-sm" onClick={() => remove(t)}>

@@ -18,6 +18,8 @@ Next.js 14 + Tailwind + Supabase. Deploys on Vercel from GitHub.
 4. **Authentication -> Providers -> Email**: turn OFF "Allow new users to sign up" so nobody else can create accounts.
 5. Storage: bucket `Info` is created as public by the SQL (used for logos, photos, banners). `B-2`, `B-3`, `B-4` are untouched, only admins get access through the app.
 
+6. **Update v2 (teams, groups, matches, team login):** SQL Editor -> New query -> paste all of `supabase/update-v2.sql` -> Run. Run `schema.sql` first, then this one. Safe to run again.
+
 ## 2. Run locally (optional)
 
 ```bash
@@ -58,3 +60,19 @@ If you edit `Code.gs` later: Deploy -> Manage deployments -> edit -> New version
 ## How forms work
 
 Admin -> Forms & Responses -> create form -> add questions (short/long text, number, phone, email, date, multiple choice, checkboxes, dropdown) -> Save -> Copy link and share. To show a "Register Now" button on a tournament, pick the form in the tournament editor.
+
+## Tournament teams, groups, matches and the team portal (v2)
+
+**Flow**
+1. **Forms:** open your registration form -> **+ Add team registration questions** -> Save. (Or set a question's "Use this answer for" to team name / captain UID.) Email collection must be on.
+2. **Tournaments -> Edit:** pick that form and set **Registration ends**. The form closes by itself at that time and the website shows a live countdown.
+3. Teams appear in **Tournaments -> Teams & matches -> Teams** as people register. Duplicate captain UIDs are rejected.
+4. Select teams: tick rows -> **Set status: Selected**. Use **Auto-fill groups** (Groups tab) to put selected teams into groups of 12, or move teams by hand.
+5. **Email selected teams:** the Email button opens Gmail / your mail app with everyone in BCC and a ready message with the portal link. No email server needed.
+6. **Matches tab:** add a match per group (start time, room ID, password, minutes before start to unlock). Use "create for every group" then edit each group's room details.
+7. **Groups tab:** write the group info and "Top N teams qualify" (teams see both). After the matches, set teams to **Qualified**, **Eliminated** or **Disqualified** (write the reason, and an optional document link; the team sees it).
+8. **Full report** button: a printable report with every team, group, match, disqualification reasons and notes. Print or Save as PDF. CSV download is there too.
+
+**Team login (`/portal`)**: team email + captain UID. Room ID and password are never sent to the browser before the unlock time (the database checks the time, not the page). 5 wrong attempts per email locks login for 15 minutes.
+
+Honest limits: a Free Fire UID is not secret (it shows in the game), so tell captains to keep their registration email private too, because login needs both. Rooms are hidden again 4 hours after the match start.

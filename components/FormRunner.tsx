@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { checkImageFile, uploadToDrive } from "@/lib/drive";
+import { CountdownText } from "./Countdown";
 import type { Form, Question } from "@/lib/types";
 
 type Value = string | string[];
@@ -87,6 +88,16 @@ export default function FormRunner({
         document.getElementById(`q-${q.id}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
         return;
       }
+      // The captain UID becomes the team's portal password, so it must be a real numeric UID.
+      if (q.role === "captain_uid") {
+        const digits = String(answers[q.id] ?? "").replace(/\D/g, "");
+        if (!/^\d{5,15}$/.test(digits)) {
+          setFieldErr(q.id);
+          setError("Enter your Free Fire UID using digits only (5 to 15 numbers).");
+          document.getElementById(`q-${q.id}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
+          return;
+        }
+      }
     }
     const needsDrive = questions.some((q) => q.type === "file" && files[q.id]);
     if (needsDrive && !driveUrl) {
@@ -150,9 +161,16 @@ export default function FormRunner({
         <h1 className="text-3xl font-bold leading-tight text-white sm:text-4xl">{form.title}</h1>
         {form.description && <p className="mt-3 whitespace-pre-line text-zinc-400">{form.description}</p>}
         {!done && !closedReason && (
-          <p className="mt-5 border-t border-line pt-4 text-xs text-zinc-500">
-            <span className="text-red-400">*</span> Required
-          </p>
+          <div className="mt-5 flex flex-wrap items-center justify-between gap-2 border-t border-line pt-4 text-xs text-zinc-500">
+            <span>
+              <span className="text-red-400">*</span> Required
+            </span>
+            {form.deadline && (
+              <span className="text-zinc-300">
+                Closes in <CountdownText target={form.deadline} />
+              </span>
+            )}
+          </div>
         )}
       </div>
     </div>
@@ -191,7 +209,7 @@ export default function FormRunner({
   const ringFor = (id: string) => (fieldErr === id ? "border-red-500/70" : "border-line focus-within:border-brand/70");
   const tile = (active: boolean) =>
     `flex cursor-pointer items-center gap-3 rounded-xl border px-4 py-3 text-sm transition ${
-      active ? "border-brand bg-brand/10 text-white" : "border-line bg-[#0d0d12] text-zinc-300 hover:border-zinc-600"
+      active ? "border-brand bg-brand/10 text-white" : "border-line bg-field text-zinc-300 hover:border-zinc-600"
     }`;
 
   return (
@@ -229,7 +247,13 @@ export default function FormRunner({
           </div>
 
           {q.type === "short_text" && (
-            <input className="input" value={(answers[q.id] as string) ?? ""} onChange={(e) => set(q.id, e.target.value)} placeholder="Your answer" />
+            <input
+              className="input"
+              inputMode={q.role === "captain_uid" ? "numeric" : undefined}
+              value={(answers[q.id] as string) ?? ""}
+              onChange={(e) => set(q.id, e.target.value)}
+              placeholder={q.role === "captain_uid" ? "e.g. 123456789" : "Your answer"}
+            />
           )}
           {q.type === "long_text" && (
             <textarea rows={4} className="input" value={(answers[q.id] as string) ?? ""} onChange={(e) => set(q.id, e.target.value)} placeholder="Your answer" />
@@ -260,7 +284,7 @@ export default function FormRunner({
             <div className="grid gap-2">
               {q.options.map((o) => (
                 <label key={o} className={tile(answers[q.id] === o)}>
-                  <input type="radio" name={q.id} className="h-4 w-4 accent-[#ff4d1a]" checked={answers[q.id] === o} onChange={() => set(q.id, o)} />
+                  <input type="radio" name={q.id} className="h-4 w-4 accent-[#ff7a29]" checked={answers[q.id] === o} onChange={() => set(q.id, o)} />
                   {o}
                 </label>
               ))}
@@ -272,7 +296,7 @@ export default function FormRunner({
                 const on = ((answers[q.id] as string[] | undefined) ?? []).includes(o);
                 return (
                   <label key={o} className={tile(on)}>
-                    <input type="checkbox" className="h-4 w-4 accent-[#ff4d1a]" checked={on} onChange={() => toggle(q.id, o)} />
+                    <input type="checkbox" className="h-4 w-4 accent-[#ff7a29]" checked={on} onChange={() => toggle(q.id, o)} />
                     {o}
                   </label>
                 );
@@ -282,7 +306,7 @@ export default function FormRunner({
           {q.type === "file" && (
             <div>
               {files[q.id] ? (
-                <div className="flex items-center gap-4 rounded-xl border border-line bg-[#0d0d12] p-3">
+                <div className="flex items-center gap-4 rounded-xl border border-line bg-field p-3">
                   <Preview file={files[q.id]!} />
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm text-white">{files[q.id]!.name}</p>
@@ -293,7 +317,7 @@ export default function FormRunner({
                   </button>
                 </div>
               ) : (
-                <label className="flex cursor-pointer flex-col items-center justify-center gap-1 rounded-xl border-2 border-dashed border-line bg-[#0d0d12] px-4 py-8 text-center transition hover:border-brand/60">
+                <label className="flex cursor-pointer flex-col items-center justify-center gap-1 rounded-xl border-2 border-dashed border-line bg-field px-4 py-8 text-center transition hover:border-brand/60">
                   <span className="text-2xl">📷</span>
                   <span className="text-sm font-medium text-white">Tap to choose a photo</span>
                   <span className="text-xs text-zinc-500">JPG, PNG or WebP</span>

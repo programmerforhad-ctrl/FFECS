@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
-import type { Form, FormResponse, Question, QuestionType } from "@/lib/types";
+import type { Form, FormResponse, Question, QuestionType, RoleKey } from "@/lib/types";
 import { fmtDateTime, fromLocalInput, slugify, toLocalInput } from "@/lib/format";
 import { downloadCsv } from "@/lib/csv";
 import ResponsesPanel from "@/components/admin/ResponsesPanel";
@@ -22,6 +22,26 @@ const TYPES: [QuestionType, string][] = [
   ["file", "Photo upload (saved to your Google Drive)"],
 ];
 const hasOptions = (t: QuestionType) => t === "radio" || t === "checkbox" || t === "dropdown";
+const canHaveRole = (t: QuestionType) => t === "short_text" || t === "number";
+
+// Roles tell the website which answers to use for the tournament team list and the team login.
+const ROLES: [RoleKey | "", string][] = [
+  ["", "Normal question"],
+  ["team_name", "Team name (shown in team list)"],
+  ["captain_name", "Captain name"],
+  ["captain_uid", "Captain Free Fire UID (team login password)"],
+];
+
+const TEAM_PRESET: { label: string; help: string; type: QuestionType; required: boolean; role: RoleKey | null }[] = [
+  { label: "Team name", help: "", type: "short_text", required: true, role: "team_name" },
+  { label: "Captain name", help: "", type: "short_text", required: true, role: "captain_name" },
+  { label: "Captain Free Fire UID", help: "Digits only. The captain UID is used to log in to the team portal.", type: "short_text", required: true, role: "captain_uid" },
+  { label: "Captain WhatsApp number", help: "", type: "phone", required: true, role: null },
+  { label: "Player 2 UID", help: "", type: "short_text", required: true, role: null },
+  { label: "Player 3 UID", help: "", type: "short_text", required: true, role: null },
+  { label: "Player 4 UID", help: "", type: "short_text", required: true, role: null },
+  { label: "Substitute player UID (optional)", help: "", type: "short_text", required: false, role: null },
+];
 
 export default function FormEditor() {
   const params = useParams<{ id: string }>();
@@ -94,9 +114,29 @@ export default function FormEditor() {
         type: "short_text",
         options: [],
         required: false,
+        role: null,
         sort_order: a.length,
       },
     ]);
+  }
+
+  function addTeamPreset() {
+    setQs((a) => {
+      const have = new Set(a.map((q) => q.role).filter(Boolean));
+      const add = TEAM_PRESET.filter((p) => !p.role || !have.has(p.role)).map((p, i) => ({
+        id: `new-${Date.now()}-${a.length + i}`,
+        form_id: form!.id,
+        label: p.label,
+        help_text: p.help,
+        type: p.type,
+        options: [],
+        required: p.required,
+        role: p.role,
+        sort_order: a.length + i,
+      }));
+      return [...a, ...add];
+    });
+    setForm((f) => (f ? { ...f, collect_email: true } : f));
   }
 
   async function save() {
@@ -109,6 +149,10 @@ export default function FormEditor() {
       if (hasOptions(q.type) && q.options.filter((o) => o.trim()).length < 1) {
         return setMsg(`Error: add at least one option to "${q.label}".`);
       }
+    }
+    const used = clean.map((q) => q.role).filter(Boolean);
+    if (new Set(used).size !== used.length) {
+      return setMsg("Error: each team role (team name, captain name, captain UID) can be used by one question only.");
     }
     setBusy(true);
 
@@ -141,6 +185,7 @@ export default function FormEditor() {
         type: q.type,
         options: hasOptions(q.type) ? q.options.map((o) => o.trim()).filter(Boolean) : [],
         required: q.required,
+        role: canHaveRole(q.type) ? q.role || null : null,
         sort_order: i,
       };
       if (q.id.startsWith("new-")) {
@@ -281,11 +326,11 @@ export default function FormEditor() {
             </div>
             <div className="flex flex-wrap gap-6">
               <label className="flex items-center gap-2 text-sm text-zinc-200">
-                <input type="checkbox" className="h-4 w-4 accent-[#ff4d1a]" checked={form.is_open} onChange={(e) => setForm({ ...form, is_open: e.target.checked })} />
+                <input type="checkbox" className="h-4 w-4 accent-[#ff7a29]" checked={form.is_open} onChange={(e) => setForm({ ...form, is_open: e.target.checked })} />
                 Accepting responses
               </label>
               <label className="flex items-center gap-2 text-sm text-zinc-200">
-                <input type="checkbox" className="h-4 w-4 accent-[#ff4d1a]" checked={form.collect_email} onChange={(e) => setForm({ ...form, collect_email: e.target.checked })} />
+                <input type="checkbox" className="h-4 w-4 accent-[#ff7a29]" checked={form.collect_email} onChange={(e) => setForm({ ...form, collect_email: e.target.checked })} />
                 Collect email (one response per email)
               </label>
             </div>
@@ -310,10 +355,22 @@ export default function FormEditor() {
                     ))}
                   </select>
                   <label className="flex items-center gap-2 text-sm text-zinc-200">
-                    <input type="checkbox" className="h-4 w-4 accent-[#ff4d1a]" checked={q.required} onChange={(e) => upQ(i, { required: e.target.checked })} />
+                    <input type="checkbox" className="h-4 w-4 accent-[#ff7a29]" checked={q.required} onChange={(e) => upQ(i, { required: e.target.checked })} />
                     Required
                   </label>
                 </div>
+                {canHaveRole(q.type) && (
+                  <div>
+                    <label className="label">Use this answer for</label>
+                    <select className="input" value={q.role ?? ""} onChange={(e) => upQ(i, { role: (e.target.value || null) as RoleKey | null })}>
+                      {ROLES.map(([v, l]) => (
+                        <option key={v} value={v}>
+                          {l}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
                 {hasOptions(q.type) && (
                   <div>
                     <label className="label">Options (one per line)</label>
@@ -333,9 +390,18 @@ export default function FormEditor() {
                 </div>
               </div>
             ))}
-            <button className="btn btn-ghost w-full border-dashed" onClick={addQuestion}>
-              + Add question
-            </button>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <button className="btn btn-ghost w-full border-dashed" onClick={addQuestion}>
+                + Add question
+              </button>
+              <button className="btn btn-ghost w-full border-dashed" onClick={addTeamPreset}>
+                + Add team registration questions
+              </button>
+            </div>
+            <p className="text-xs text-zinc-500">
+              "Team registration questions" adds team name, captain name, captain UID, WhatsApp and player UIDs. Teams that submit this
+              form appear in the tournament's team list, and log in to the team portal with their email + captain UID.
+            </p>
           </section>
 
           <div className="sticky bottom-0 -mx-4 flex items-center gap-4 border-t border-line bg-bg/90 px-4 py-3 backdrop-blur sm:mx-0 sm:rounded-xl">

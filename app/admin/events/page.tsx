@@ -85,7 +85,7 @@ export default function EventsAdmin() {
             <ImageUpload folder="events" value={draft.image_url} onChange={(u) => setDraft({ ...draft, image_url: u })} />
           </div>
           <label className="flex items-center gap-2 text-sm text-zinc-200">
-            <input type="checkbox" className="h-4 w-4 accent-[#ff4d1a]" checked={draft.is_published ?? true} onChange={(e) => setDraft({ ...draft, is_published: e.target.checked })} />
+            <input type="checkbox" className="h-4 w-4 accent-[#ff7a29]" checked={draft.is_published ?? true} onChange={(e) => setDraft({ ...draft, is_published: e.target.checked })} />
             Published (visible on website)
           </label>
           {err && <p className="text-sm text-red-400">{err}</p>}

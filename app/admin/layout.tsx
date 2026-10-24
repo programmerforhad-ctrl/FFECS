@@ -106,9 +106,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   return (
     <div className="min-h-screen lg:flex">
-      <aside className="border-b border-line bg-panel lg:sticky lg:top-0 lg:h-screen lg:w-60 lg:shrink-0 lg:border-b-0 lg:border-r">
+      <aside className="border-b border-line bg-panel print:hidden lg:sticky lg:top-0 lg:h-screen lg:w-60 lg:shrink-0 lg:border-b-0 lg:border-r">
         <div className="flex items-center justify-between px-4 py-3 lg:block">
-          <span className="font-display text-lg font-bold text-white">Admin Panel</span>
+          <span className="font-display text-2xl font-extrabold text-white">Admin Panel</span>
           <button className="btn btn-ghost btn-sm lg:hidden" onClick={() => setMenu(!menu)}>
             {menu ? "✕" : "☰"}
           </button>
@@ -135,7 +135,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           </button>
         </nav>
       </aside>
-      <main className="min-w-0 flex-1 p-4 sm:p-8">{children}</main>
+      <main className="min-w-0 flex-1 p-4 sm:p-8 print:p-0">{children}</main>
     </div>
   );
 }

@@ -58,3 +58,16 @@ export function registerHref(t?: Tournament | null): string | null {
   if (t.forms?.slug && t.forms.is_open) return `/form/${t.forms.slug}`;
   return null;
 }
+
+export type Stats = { teams: number; tournaments: number; events: number; members: number };
+
+export async function getStats(): Promise<Stats> {
+  const empty = { teams: 0, tournaments: 0, events: 0, members: 0 };
+  try {
+    const { data, error } = await supabase.rpc("public_stats");
+    if (error || !data) return empty;
+    return { ...empty, ...(data as Partial<Stats>) };
+  } catch {
+    return empty;
+  }
+}
