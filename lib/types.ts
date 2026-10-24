@@ -57,7 +57,8 @@ export type QuestionType =
   | "date"
   | "radio"
   | "checkbox"
-  | "dropdown";
+  | "dropdown"
+  | "file";
 
 export type Question = {
   id: string;

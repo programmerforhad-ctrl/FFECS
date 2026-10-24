@@ -1,5 +1,7 @@
 import { supabase } from "@/lib/supabase";
 import FormRunner from "@/components/FormRunner";
+import { getSettings } from "@/lib/data";
+import { DEFAULT_NAME } from "@/lib/settings";
 import type { Form, Question } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -21,11 +23,10 @@ export default async function FormPage({ params }: { params: { slug: string } })
     );
   }
 
-  const { data: qs } = await supabase
-    .from("form_questions")
-    .select("*")
-    .eq("form_id", form.id)
-    .order("sort_order", { ascending: true });
+  const [{ data: qs }, s] = await Promise.all([
+    supabase.from("form_questions").select("*").eq("form_id", form.id).order("sort_order", { ascending: true }),
+    getSettings(),
+  ]);
 
   let closedReason: string | undefined;
   if (!form.is_open) closedReason = "This form is no longer accepting responses.";
@@ -36,8 +37,15 @@ export default async function FormPage({ params }: { params: { slug: string } })
   }
 
   return (
-    <div className="container-x max-w-2xl py-10">
-      <FormRunner form={form} questions={(qs ?? []) as Question[]} closedReason={closedReason} />
+    <div className="container-x max-w-2xl py-8 sm:py-10">
+      <FormRunner
+        form={form}
+        questions={(qs ?? []) as Question[]}
+        closedReason={closedReason}
+        driveUrl={s.drive_upload_url || undefined}
+        brandName={s.community_name || DEFAULT_NAME}
+        logo={s.logo_url || undefined}
+      />
     </div>
   );
 }

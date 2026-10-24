@@ -16,13 +16,20 @@ export const SETTINGS_FIELDS: SettingField[] = [
 
   { group: "About", key: "about_text", label: "About us (full text)", type: "textarea" },
   { group: "About", key: "mission", label: "Mission", type: "textarea" },
-  { group: "About", key: "vision", label: "Vision", type: "textarea" },
   { group: "About", key: "founded", label: "Founded (year)", type: "text", placeholder: "2024" },
 
   { group: "Contact", key: "email", label: "Email", type: "text" },
   { group: "Contact", key: "phone", label: "Phone", type: "text", placeholder: "+8801XXXXXXXXX" },
   { group: "Contact", key: "whatsapp", label: "WhatsApp number", type: "text", placeholder: "8801XXXXXXXXX" },
   { group: "Contact", key: "address", label: "Address / Location", type: "text", placeholder: "Sylhet, Bangladesh" },
+
+  {
+    group: "Photo uploads (Google Drive)",
+    key: "drive_upload_url",
+    label: "Google Apps Script web app URL (photos uploaded in forms go to your Drive)",
+    type: "text",
+    placeholder: "https://script.google.com/macros/s/.../exec",
+  },
 
   { group: "Social links", key: "facebook_page", label: "Facebook page URL", type: "text" },
   { group: "Social links", key: "facebook_group", label: "Facebook group URL", type: "text" },

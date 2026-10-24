@@ -7,10 +7,7 @@ export const metadata: Metadata = { title: "About Us" };
 
 export default async function About() {
   const s = await getSettings();
-  const blocks = [
-    ["Mission", s.mission],
-    ["Vision", s.vision],
-  ].filter(([, v]) => v);
+  const blocks = [["Mission", s.mission]].filter(([, v]) => v);
 
   return (
     <>
@@ -22,7 +19,7 @@ export default async function About() {
           <p className="text-zinc-500">About information will be added soon.</p>
         )}
         {blocks.length > 0 && (
-          <div className="mt-10 grid gap-6 md:grid-cols-2">
+          <div className="mt-10 grid gap-6">
             {blocks.map(([title, text]) => (
               <div key={title} className="card p-6">
                 <h2 className="text-2xl font-bold text-brand">{title}</h2>

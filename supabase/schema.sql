@@ -85,13 +85,18 @@ create table if not exists public.form_questions (
   label      text not null,
   help_text  text,
   type       text not null default 'short_text'
-             check (type in ('short_text','long_text','number','phone','email','date','radio','checkbox','dropdown')),
+             check (type in ('short_text','long_text','number','phone','email','date','radio','checkbox','dropdown','file')),
   options    jsonb not null default '[]'::jsonb check (jsonb_typeof(options) = 'array'),
   required   boolean not null default false,
   sort_order int not null default 0,
   created_at timestamptz not null default now()
 );
 create index if not exists form_questions_form_idx on public.form_questions(form_id, sort_order);
+
+-- Upgrade for databases created before the "file" (photo upload) question type existed.
+alter table public.form_questions drop constraint if exists form_questions_type_check;
+alter table public.form_questions add constraint form_questions_type_check
+  check (type in ('short_text','long_text','number','phone','email','date','radio','checkbox','dropdown','file'));
 
 create table if not exists public.form_responses (
   id               uuid primary key default gen_random_uuid(),
@@ -254,9 +259,11 @@ insert into public.site_settings (key, value) values
   ('community_name', 'FREE FIRE E-SPORTS COMMUNITY SYLHET'),
   ('tagline', 'Sylhet''s home of competitive Free Fire'),
   ('about_text', 'We are the Free Fire E-Sports Community of Sylhet. We organise tournaments, events and practice matches for players across Sylhet.'),
-  ('mission', 'To build a fair, active and welcoming Free Fire e-sports scene in Sylhet.'),
-  ('vision', 'To grow Sylhet''s best players into national-level competitors.')
+  ('mission', 'To build a fair, active and welcoming Free Fire e-sports scene in Sylhet.')
 on conflict (key) do nothing;
+
+-- Vision was removed from the website; clean up the old row if it exists.
+delete from public.site_settings where key = 'vision';
 
 -- =====================================================================
 -- 8. MAKE YOURSELF ADMIN  (do this AFTER step 2 in the README)

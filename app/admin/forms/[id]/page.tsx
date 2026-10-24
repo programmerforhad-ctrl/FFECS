@@ -7,6 +7,7 @@ import { supabase } from "@/lib/supabase";
 import type { Form, FormResponse, Question, QuestionType } from "@/lib/types";
 import { fmtDateTime, fromLocalInput, slugify, toLocalInput } from "@/lib/format";
 import { downloadCsv } from "@/lib/csv";
+import ResponsesPanel from "@/components/admin/ResponsesPanel";
 
 const TYPES: [QuestionType, string][] = [
   ["short_text", "Short answer"],
@@ -18,38 +19,56 @@ const TYPES: [QuestionType, string][] = [
   ["radio", "Multiple choice (pick one)"],
   ["checkbox", "Checkboxes (pick many)"],
   ["dropdown", "Dropdown"],
+  ["file", "Photo upload (saved to your Google Drive)"],
 ];
 const hasOptions = (t: QuestionType) => t === "radio" || t === "checkbox" || t === "dropdown";
 
 export default function FormEditor() {
-  const { id } = useParams<{ id: string }>();
+  const params = useParams<{ id: string }>();
+  const id = Array.isArray(params.id) ? params.id[0] : params.id;
+
   const [tab, setTab] = useState<"build" | "responses">("build");
   const [form, setForm] = useState<Form | null>(null);
+  const [loadErr, setLoadErr] = useState("");
   const [deadlineInput, setDeadlineInput] = useState("");
   const [qs, setQs] = useState<Question[]>([]);
   const [responses, setResponses] = useState<FormResponse[]>([]);
   const [msg, setMsg] = useState("");
   const [busy, setBusy] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [driveSet, setDriveSet] = useState(true);
 
   async function load() {
-    const [f, q, r] = await Promise.all([
+    const [f, q, r, s] = await Promise.all([
       supabase.from("forms").select("*").eq("id", id).maybeSingle(),
       supabase.from("form_questions").select("*").eq("form_id", id).order("sort_order"),
       supabase.from("form_responses").select("*").eq("form_id", id).order("created_at", { ascending: false }),
+      supabase.from("site_settings").select("value").eq("key", "drive_upload_url").maybeSingle(),
     ]);
-    if (f.data) {
-      setForm(f.data as Form);
-      setDeadlineInput(toLocalInput((f.data as Form).deadline));
-    }
-    setQs((q.data ?? []) as Question[]);
+    if (f.error) return setLoadErr(f.error.message);
+    if (!f.data) return setLoadErr("This form was not found. It may have been deleted.");
+    setLoadErr("");
+    setForm(f.data as Form);
+    setDeadlineInput(toLocalInput((f.data as Form).deadline));
+    setQs(((q.data ?? []) as Question[]).map((x) => ({ ...x, options: Array.isArray(x.options) ? x.options : [] })));
     setResponses((r.data ?? []) as FormResponse[]);
+    setDriveSet(!!s.data?.value);
   }
   useEffect(() => {
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
+  if (loadErr) {
+    return (
+      <div className="max-w-xl">
+        <Link href="/admin/forms" className="text-sm text-zinc-400 hover:text-brand">
+          ← All forms
+        </Link>
+        <p className="mt-4 rounded-lg border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm text-red-300">{loadErr}</p>
+      </div>
+    );
+  }
   if (!form) return <p className="text-zinc-500">Loading…</p>;
 
   const link = typeof window !== "undefined" ? `${window.location.origin}/form/${form.slug}` : `/form/${form.slug}`;
@@ -85,6 +104,7 @@ export default function FormEditor() {
     const slug = slugify(form!.slug);
     if (!form!.title.trim() || !slug) return setMsg("Error: title and link name are required.");
     const clean = qs.filter((q) => q.label.trim());
+    if (clean.length < qs.length && !confirm("Questions with an empty title will not be saved. Continue?")) return;
     for (const q of clean) {
       if (hasOptions(q.type) && q.options.filter((o) => o.trim()).length < 1) {
         return setMsg(`Error: add at least one option to "${q.label}".`);
@@ -125,16 +145,24 @@ export default function FormEditor() {
       };
       if (q.id.startsWith("new-")) {
         const { data, error } = await supabase.from("form_questions").insert(row).select("id").single();
-        if (error) {
+        if (error || !data) {
           setBusy(false);
-          return setMsg(`Error: ${error.message}`);
+          return setMsg(
+            `Error: ${error?.message ?? "could not save question"}${
+              /form_questions_type_check/.test(error?.message ?? "") ? " — re-run supabase/schema.sql in the SQL Editor (needed for the photo upload type)." : ""
+            }`
+          );
         }
         keepIds.push(data.id);
       } else {
         const { error } = await supabase.from("form_questions").update(row).eq("id", q.id);
         if (error) {
           setBusy(false);
-          return setMsg(`Error: ${error.message}`);
+          return setMsg(
+            `Error: ${error.message}${
+              /form_questions_type_check/.test(error.message) ? " — re-run supabase/schema.sql in the SQL Editor (needed for the photo upload type)." : ""
+            }`
+          );
         }
         keepIds.push(q.id);
       }
@@ -143,7 +171,7 @@ export default function FormEditor() {
     if (removed.length) await supabase.from("form_questions").delete().in("id", removed);
 
     setBusy(false);
-    setMsg("Saved ✓");
+    setMsg("Saved ✓ — the form link is live.");
     load();
   }
 
@@ -171,8 +199,10 @@ export default function FormEditor() {
     downloadCsv(`${form!.slug}-responses.csv`, rows);
   }
 
+  const usesFile = qs.some((q) => q.type === "file");
+
   return (
-    <div className="max-w-4xl">
+    <div className="max-w-5xl">
       <Link href="/admin/forms" className="text-sm text-zinc-400 hover:text-brand">
         ← All forms
       </Link>
@@ -210,7 +240,17 @@ export default function FormEditor() {
       </div>
 
       {tab === "build" && (
-        <div className="mt-6 space-y-6">
+        <div className="mt-6 max-w-3xl space-y-6">
+          {usesFile && !driveSet && (
+            <p className="rounded-lg border border-brand2/40 bg-brand2/10 px-4 py-3 text-sm text-brand2">
+              This form has a photo upload question, but the Google Drive upload link is not set yet. Add it in{" "}
+              <Link href="/admin/settings" className="underline">
+                Site Settings → Photo uploads (Google Drive)
+              </Link>
+              . See the README for the 5-minute setup.
+            </p>
+          )}
+
           <section className="card space-y-4 p-5">
             <h2 className="text-xl font-bold text-brand">Form settings</h2>
             <div>
@@ -277,12 +317,7 @@ export default function FormEditor() {
                 {hasOptions(q.type) && (
                   <div>
                     <label className="label">Options (one per line)</label>
-                    <textarea
-                      rows={4}
-                      className="input"
-                      value={q.options.join("\n")}
-                      onChange={(e) => upQ(i, { options: e.target.value.split("\n") })}
-                    />
+                    <textarea rows={4} className="input" value={q.options.join("\n")} onChange={(e) => upQ(i, { options: e.target.value.split("\n") })} />
                   </div>
                 )}
                 <div className="flex gap-2">
@@ -313,39 +348,13 @@ export default function FormEditor() {
       )}
 
       {tab === "responses" && (
-        <div className="mt-6">
-          <div className="mb-4 flex items-center justify-between">
-            <p className="text-zinc-400">{responses.length} response(s)</p>
-            <button className="btn btn-primary btn-sm" disabled={!responses.length} onClick={exportCsv}>
-              Download CSV (Excel)
-            </button>
-          </div>
-          {responses.length === 0 && <p className="text-zinc-500">No responses yet.</p>}
-          <div className="space-y-3">
-            {responses.map((r, n) => (
-              <details key={r.id} className="card p-4">
-                <summary className="flex cursor-pointer flex-wrap items-center gap-3">
-                  <span className="font-display text-lg font-bold text-zinc-500">#{responses.length - n}</span>
-                  <span className="min-w-0 flex-1 truncate font-semibold text-white">{r.respondent_email || "(no email)"}</span>
-                  <span className="text-xs text-zinc-500">{fmtDateTime(r.created_at)}</span>
-                </summary>
-                <dl className="mt-4 space-y-3 border-t border-line pt-4 text-sm">
-                  {r.answers.map((a) => (
-                    <div key={a.question_id}>
-                      <dt className="text-xs uppercase tracking-wider text-zinc-500">{a.label}</dt>
-                      <dd className="mt-0.5 whitespace-pre-line break-words text-zinc-100">
-                        {Array.isArray(a.value) ? a.value.join(", ") || "—" : String(a.value || "—")}
-                      </dd>
-                    </div>
-                  ))}
-                </dl>
-                <button className="btn btn-danger btn-sm mt-4" onClick={() => deleteResponse(r)}>
-                  Delete response
-                </button>
-              </details>
-            ))}
-          </div>
-        </div>
+        <ResponsesPanel
+          questions={qs.filter((q) => !q.id.startsWith("new-"))}
+          responses={responses}
+          collectEmail={form.collect_email}
+          onDelete={deleteResponse}
+          onExport={exportCsv}
+        />
       )}
     </div>
   );
